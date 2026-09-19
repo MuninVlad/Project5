@@ -18,10 +18,11 @@ print(len(zero_dur))
 #chcecking the charging and consuming
 #charging with positive or zero energy
 invalid_charging = bp[(bp['activity'] == 'charging') & (bp['energy consumption'] >= 0)]
-invalid_charging['excel_row'] = invalid_charging.index + 2
+invalid_charging['excel_row'] = invalid_charging.index + 2  # because excel rows are different than pandas rows
 print(invalid_charging[['excel_row', 'activity', 'energy consumption']])
 
 
 #material/service trips with negative energy
 invalid_trips = bp[(bp['activity'].isin(['service trip', 'material trip'])) & (bp['energy consumption'] < 0)]
-print("Invalid trip energy rows:", invalid_trips.index.tolist())
+invalid_trips['excel_rows'] = invalid_trips.index + 2
+print(invalid_trips[['excel_rows','activity','energy consumption']])
