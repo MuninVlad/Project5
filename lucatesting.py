@@ -5,7 +5,7 @@ bp = pd.read_excel('Bus Planning.xlsx')
 dm = pd.read_excel('DistanceMatrix.xlsx')
 t = pd.read_excel('Timetable.xlsx')
 
-#Testing datasets
+#Testing datasets in distancematrix
 invalid_time = dm[dm['min_travel_time'] > dm['max_travel_time']]
 neg_values = dm[(dm['min_travel_time'] < 0) | (dm['max_travel_time'] < 0) | (dm['distance_m'] < 0)]
 print(len(invalid_time))
@@ -15,7 +15,7 @@ print(len(neg_values))
 zero_dur = bp[bp['end time'] == bp['start time']]
 print(len(zero_dur))
 
-#chcecking the charging and consuming
+
 #charging with positive or zero energy
 invalid_charging = bp[(bp['activity'] == 'charging') & (bp['energy consumption'] >= 0)]
 invalid_charging['excel_row'] = invalid_charging.index + 2  # because excel rows are different than pandas rows
