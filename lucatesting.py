@@ -26,3 +26,5 @@ print(invalid_charging[['excel_row', 'activity', 'energy consumption']])
 invalid_trips = bp[(bp['activity'].isin(['service trip', 'material trip'])) & (bp['energy consumption'] < 0)]
 invalid_trips['excel_rows'] = invalid_trips.index + 2
 print(invalid_trips[['excel_rows','activity','energy consumption']])
+
+
