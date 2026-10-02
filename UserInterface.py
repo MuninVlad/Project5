@@ -33,7 +33,7 @@ with col2:
 
     if st.button("🔍 Check for errors", use_container_width=True):
         if uploaded_file is not None:
-            st.warning("Checking file for consistency and feasibility errors")
+            st.warning("Checking file")
             # function for testing
         else:
             st.error("Please upload a file first!")
@@ -41,7 +41,7 @@ with col2:
     if st.button("🚀 Improve this bus planning", use_container_width=True):
         if uploaded_file is not None:
             # optimization algorithm here
-            st.info("🔄 Running optimization algorithm... (Backend pending)")
+            st.info("🔄 Running optimization algorithm...")
         else:
             st.error("Please upload a file first!")
 
