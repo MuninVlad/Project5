@@ -26,7 +26,7 @@ def calculations_KPIs(bus_plan, distance_matrix):
         key = (d_start, d_end, d_line)
         distance_lookup[key] = distance.loc[j, 'distance_m']
 
-    deadhead_distance = 0  
+    deadhead_distance = 0  # the material trip distance
 
     for i in range(len(planning)):
         activity = planning.loc[i, 'activity']   
@@ -42,7 +42,7 @@ def calculations_KPIs(bus_plan, distance_matrix):
 
     deadhead_distance_km = deadhead_distance / 1000
 
-    total_idle_time = 0
+    total_idle_time = 0 # total idle time 
     for i in range(len(planning)):
         activity = planning.loc[i,'activity']
         if activity == 'idle':
