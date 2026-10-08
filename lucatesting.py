@@ -60,3 +60,29 @@ def time_matrix(dm):
 def minus_distance(dm):
     neg_distance = dm.index[dm['distance_m'] < 0]
     return neg_distance
+
+
+# test if activity is a trip but start and end are the same
+def trip_with_the_same_start_and_end(bp):
+    active_trips = bp[bp['activity'].isin(['material trip', 'service trip'])]
+    error_dest_trips = active_trips[active_trips['start location'] == active_trips['end location']]
+    return error_dest_trips
+
+def data_submitted_successfully(file_path):
+    if pd.read_excel(file_path):
+        return True
+    else:
+        return False
+
+#no nulls in the planning 
+def check_nulls(bp):
+    # number of nulls in all columns except line column
+    without_line = bp.drop(columns='line')
+    num_of_nulls = without_line.isnull().sum().sum()   
+    return num_of_nulls
+
+# no duplicate trips
+def check_duplicates(bp):
+    num_duplicates = bp.duplicated().sum()
+    return num_duplicates
+    
