@@ -31,7 +31,7 @@ with col1:
         st.info("Please upload your Excel file to begin.")
 
 with col2:
-    st.subheader('Actions and Controls')
+    st.subheader('Error checking')
 
     if st.button("🔍 Check for errors", use_container_width=True):
         if uploaded_file is not None:
