@@ -3,6 +3,7 @@ import numpy as np
 # import time lib. to start time from zero 
 from datetime import timedelta, datetime
 
+
 dm = pd.read_excel('DistanceMatrix.xlsx')
 bp = pd.read_excel('Bus Planning.xlsx')
 
@@ -65,12 +66,25 @@ def find_consumption_between_two_stops(start, end):
     #     consumption_list.append({'start': start, 'end': end, 'consumption': consumption , 'activity': trip_type, 'line': line})
     # return pd.DataFrame(consumption_list)
 
+def num_to_date(num):
+    dayofplanning = datetime.now().replace(hour=0, minute=0, second=0)
+    date = dayofplanning + timedelta(minutes=num)
+    return date
+
+def date_to_num(date):
+    dayofplanning = datetime.now().replace(hour=0, minute=0, second=0)
+    num = (date - dayofplanning).total_seconds() / 60
+    return num
+
 # find available buses 
 def find_available_buses(bdf):
     #buses data frame bdf
+    # check availablity with time not status 
+    
+    bdf['time']
     return(bdf[bdf['status'] == 0])
 
-# find earliest trip 
+# find earliest next trip 
 def next_trip(time_table):
     #time table tb
     tb = pd.DataFrame(time_table)
