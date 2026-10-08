@@ -3,6 +3,8 @@ import pandas as pd
 import plotly.express as px
 
 
+import lucatesting as t
+
 st.set_page_config(
     page_title="Transdev Bus Planning Tool",
     page_icon="🚌",
@@ -33,25 +35,73 @@ with col2:
 
     if st.button("🔍 Check for errors", use_container_width=True):
         if uploaded_file is not None:
-            st.warning("Checking file")
-            # function for testing
+            successcount = 0
+            #Test 1
+            coltest = t.check_columnsbp(df)
+            if coltest:
+                st.success("All required columns are present!")
+                successcount = successcount+1
+            else:
+                st.error("Missing required columns in the dataset.")
+
+            #Test 2
+            chargingtest = t.consumption_during_chargin(df)
+            if chargingtest.empty:
+                st.success("✅ All charging activities are correct.")
+                successcount = successcount+1
+            else:
+                st.error(f"❌ Found {len(chargingtest)} invalid charging activities (consumption >= 0):")
+                st.dataframe(chargingtest, use_container_width=True)
+
+
+            #Test 3
+            invalid_trips_df = t.trips_with_negative_consumption(df)
+            if invalid_trips_df.empty:
+                st.success("✅ All trips have correct positive consumption.")
+                successcount = successcount+1
+            else:
+                st.error(f"❌ Found {len(invalid_trips_df)} service/material trips with negative consumption:")
+                st.dataframe(invalid_trips_df, use_container_width=True)
+
+            #Test 4
+            zero_idle_df = t.idle_with_zero_minutes(df)
+            if zero_idle_df.empty:
+                st.success("✅ No idle times with zero minutes found.")
+                successcount = successcount+1
+            else:
+                st.warning(f" Found {len(zero_idle_df)} idle activities with 0 duration:")
+                st.dataframe(zero_idle_df, use_container_width=True)
+
+
+            if successcount == 4:
+                st.success("✅ No errors in the data")
+
         else:
             st.error("Please upload a file first!")
 
-    if st.button("🚀 Improve this bus planning", use_container_width=True):
+    
+    
+    
+
+st.subheader("Improve bus planning")
+
+if st.button("🚀 Improve this bus planning", use_container_width=True):
         if uploaded_file is not None:
             # optimization algorithm here
             st.info("🔄 Running optimization algorithm...")
         else:
             st.error("Please upload a file first!")
 
+
+st.markdown("📥 Export Result")
     
-    st.markdown("📥 Export Result")
-    
-    st.download_button(
+st.download_button(
         label="Download Improved Bus Plan (.xlsx)",
         data=b"placeholder_data",  # final dataframe converted to bytes later
         file_name="improved_bus_planning.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
+
+st.subheader("📊 Number of buses")
+
