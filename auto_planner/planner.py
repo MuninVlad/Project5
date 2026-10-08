@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np 
 # import time lib. to start time from zero 
-import datetime  
+from datetime import timedelta, datetime
 
 dm = pd.read_excel('DistanceMatrix.xlsx')
 bp = pd.read_excel('Bus Planning.xlsx')
@@ -19,6 +19,7 @@ idle_consumption_per_hour = 5
 
 # create buses data frame 
 def create_buses_df(num_of_busses):
+    dayofplanning = datetime.now().replace(hour=0, minute=0, second=0)
     # returns bus_num, current stop, SoC, status
     #zero is available, one is busy
     return pd.DataFrame({
@@ -27,9 +28,7 @@ def create_buses_df(num_of_busses):
         'SoC': 100.0,
         'status': 0,
         #start with zero time for all buses
-        'time': time_zero , 
-        'time2': datetime.datetime.combine(datetime.date.today(), datetime.time.min)
-
+        'time': dayofplanning
     })
 
 # get distance for a trip 
