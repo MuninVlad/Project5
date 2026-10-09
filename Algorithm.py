@@ -15,5 +15,7 @@ def make_distance_lookup(distance_file):
             distance_lookup[(start,end)] = (km,minutes)
     return distance_lookup
 
-lookup = make_distance_lookup('DistanceMatrix.xlsx')
-print(lookup[('ehvbst','ehvbst')])
+#lookup = make_distance_lookup('DistanceMatrix.xlsx')
+#print(lookup[('ehvbst','ehvbst')])
+
+def get_drive()
