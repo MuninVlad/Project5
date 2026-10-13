@@ -1,11 +1,11 @@
 import pandas as pd 
 import math
 
-ENERGY_PER_KM = 1.2           # кВт·ч на км (из Excel клиента)
-IDLE_PER_MIN = 5 / 60         # кВт·ч в минуту, пока автобус стоит
-CHARGE_PER_MIN = 450 / 60     # кВт·ч в минуту при зарядке (7.5)
-MIN_CHARGE_TIME = 15          # минут
-EXTRA_WAIT = 0                # минут
+ENERGY_PER_KM = 1.2           
+IDLE_PER_MIN = 5 / 60         
+CHARGE_PER_MIN = 450 / 60     
+MIN_CHARGE_TIME = 15          
+EXTRA_WAIT = 0               
 GARAGE = 'ehvgar'
 
 def make_distance_lookup(distance_file):
@@ -31,7 +31,7 @@ def get_drive(lookup,start,end):
 
 lookup = make_distance_lookup('DistanceMatrix.xlsx')
 result = get_drive(lookup,'ehvbst','ehvbst')
-#print(result)
+
 
 def battery_limits(battery_size,soh):
     usable = battery_size * soh
@@ -80,28 +80,28 @@ def load_trips(timetable_file, distance_file):
     trips.sort(key=lambda t: t['departure'])
 
     return trips
-trips = load_trips('Timetable.xlsx','DistanceMatrix.xlsx')
+
 
 def find_free_bus(buses, trip, lookup, lowest):
     chosen_bus = None                                  
     shortest_empty = 999999                             
 
     for bus in buses:                                  
-        empty_km, empty_minutes = get_drive(lookup, bus['position'], trip['start'])        # 16: от автобуса до начала рейса
-        waiting = trip['departure'] - (bus['free_from'] + empty_minutes)                    # 17
-        energy_needed = (empty_km + trip['km']) * ENERGY_PER_KM + (waiting + EXTRA_WAIT) * IDLE_PER_MIN   # 18
-        home_km, home_minutes = get_drive(lookup, trip['end'], GARAGE)       # 19: от конца рейса до гаража
+        empty_km, empty_minutes = get_drive(lookup, bus['position'], trip['start'])        
+        waiting = trip['departure'] - (bus['free_from'] + empty_minutes)                    
+        energy_needed = (empty_km + trip['km']) * ENERGY_PER_KM + (waiting + EXTRA_WAIT) * IDLE_PER_MIN   
+        home_km, home_minutes = get_drive(lookup, trip['end'], GARAGE)       
         energy_home = home_km * ENERGY_PER_KM
 
-        if waiting >= 0 and bus['battery'] - energy_needed - energy_home >= lowest:                           # 20
-            if chosen_bus is None or empty_km < shortest_empty or (empty_km == shortest_empty and bus['battery'] < chosen_bus['battery']):   # 21
-                chosen_bus = bus                                    # 22
-                shortest_empty = empty_km                                 # 23
+        if waiting >= 0 and bus['battery'] - energy_needed - energy_home >= lowest:                           
+            if chosen_bus is None or empty_km < shortest_empty or (empty_km == shortest_empty and bus['battery'] < chosen_bus['battery']):   
+                chosen_bus = bus                                   
+                shortest_empty = empty_km                                 
 
     return chosen_bus
 
 def create_new_bus(buses, trip, lookup, start_charge):
-    drive_km, drive_minutes = get_drive(lookup, GARAGE, trip['start'])    # от гаража до начала рейса
+    drive_km, drive_minutes = get_drive(lookup, GARAGE, trip['start'])   
 
     new_bus = {'id': len(buses) + 1 ,
                'position': GARAGE,
@@ -226,11 +226,32 @@ def build_plan(trips, lookup, lowest,highest, start_charge):
     number_of_buses = len(buses)
     return buses, number_of_buses
 
-usable, lowest, highest, start_charge = battery_limits(300, 0.85)
-buses, number_of_buses = build_plan(trips, lookup, lowest, highest, start_charge)
-print(number_of_buses)
 
-total_rows = 0
-for bus in buses:
-    total_rows = total_rows + len(bus['route'])
-print(total_rows)
+# exporting to Excel file
+def minutes_to_time(minutes):
+    minutes = minutes % 1440
+    hours = minutes // 60
+    mins = minutes % 60
+    return f'{hours:02d}:{mins:02d}:00'
+
+def save_plan(buses, file_name):
+    rows = []
+    for bus in buses:
+        for row in bus['route']:
+            rows.append({'start location': row['start'],
+                         'end location': row['end'],
+                         'start time': minutes_to_time(row['start_time']),
+                         'end time': minutes_to_time(row['end_time']),
+                         'activity': row['activity'],
+                         'line': row['line'],
+                         'energy consumption': row['energy'],
+                         'bus': bus['id']})
+    table = pd.DataFrame(rows)
+    table.to_excel(file_name, index=False)
+
+lookup = make_distance_lookup('DistanceMatrix.xlsx')
+usable, lowest, highest, start_charge = battery_limits(300, 0.85)
+trips = load_trips('Timetable.xlsx', 'DistanceMatrix.xlsx')
+buses, number_of_buses = build_plan(trips, lookup, lowest, highest, start_charge)
+save_plan(buses, 'our_bus_plan.xlsx')
+print('Bus plan saved to our_bus_plan.xlsx with', number_of_buses, 'buses')
