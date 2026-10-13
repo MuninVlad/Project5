@@ -1,4 +1,6 @@
 import pandas as pd 
+import math
+
 ENERGY_PER_KM = 1.2           # кВт·ч на км (из Excel клиента)
 IDLE_PER_MIN = 5 / 60         # кВт·ч в минуту, пока автобус стоит
 CHARGE_PER_MIN = 450 / 60     # кВт·ч в минуту при зарядке (7.5)
@@ -53,7 +55,7 @@ def load_trips(timetable_file, distance_file):
         line = distance.loc[i, 'line']
         if not pd.isna(line):                     
             key = (distance.loc[i, 'start'], distance.loc[i, 'end'], int(line))
-            km = distance.loc[i,'distance_m']/1000
+            km = float(distance.loc[i,'distance_m']/1000)
             duration = distance.loc[i,'max_travel_time']
             trip_info[key] = (km, duration)
 
@@ -109,3 +111,126 @@ def create_new_bus(buses, trip, lookup, start_charge):
 
     buses.append(new_bus)
     return new_bus
+
+def assign_trip(bus, trip, lookup):
+
+    
+    if bus['position'] != trip['start']:
+        drive_km, drive_minutes = get_drive(lookup, bus['position'], trip['start'])
+        energy = drive_km * ENERGY_PER_KM
+        bus['route'].append({'start': bus['position'], 'end': trip['start'],
+                             'start_time': bus['free_from'], 'end_time': bus['free_from'] + drive_minutes,
+                             'activity': 'material trip', 'line': None,
+                             'energy': energy})
+        bus['battery'] = bus['battery'] - energy
+        bus['free_from'] = bus['free_from'] + drive_minutes
+        bus['position'] = trip['start']
+
+  
+    if bus['free_from'] < trip['departure']:
+        waiting = trip['departure'] - bus['free_from']
+        energy = IDLE_PER_MIN * waiting
+        bus['route'].append({'start': trip['start'], 'end': trip['start'],
+                             'start_time': bus['free_from'], 'end_time': trip['departure'],
+                             'activity': 'idle', 'line': None,
+                             'energy': energy})
+        bus['battery'] = bus['battery'] - energy
+        bus['free_from'] = trip['departure']
+
+    
+    energy = trip['km'] * ENERGY_PER_KM
+    bus['route'].append({'start': trip['start'], 'end': trip['end'],
+                         'start_time': trip['departure'], 'end_time': trip['departure'] + trip['duration'],
+                         'activity': 'service trip', 'line': trip['line'],
+                         'energy': energy})
+    bus['battery'] = bus['battery'] - energy
+    bus['free_from'] = trip['departure'] + trip['duration']
+    bus['position'] = trip['end']
+
+def charge_bus(bus, trip, lookup, lowest, highest):
+
+    
+    to_garage_km, to_garage_minutes = get_drive(lookup, bus['position'], GARAGE)
+    battery_on_arrival = bus['battery'] - to_garage_km * ENERGY_PER_KM
+    arrival = bus['free_from'] + to_garage_minutes
+
+    
+    to_start_km, to_start_minutes = get_drive(lookup, GARAGE, trip['start'])
+    latest_end = trip['departure'] - to_start_minutes
+
+    
+    charge_end = arrival + (highest - battery_on_arrival) / CHARGE_PER_MIN
+    if charge_end > latest_end:
+        charge_end = latest_end
+    if charge_end < arrival + MIN_CHARGE_TIME:
+        charge_end = arrival + MIN_CHARGE_TIME
+    charge_end = math.ceil(charge_end)
+
+    
+    battery_after = battery_on_arrival + (charge_end - arrival) * CHARGE_PER_MIN
+    if battery_after > highest:
+        battery_after = highest
+
+    waiting = trip['departure'] - (charge_end + to_start_minutes)
+    energy_needed = (to_start_km + trip['km']) * ENERGY_PER_KM + (waiting + EXTRA_WAIT) * IDLE_PER_MIN
+    home_km, home_minutes = get_drive(lookup, trip['end'], GARAGE)
+    energy_home = home_km * ENERGY_PER_KM
+
+    
+    if battery_on_arrival >= lowest and battery_on_arrival < highest and charge_end <= latest_end and battery_after - energy_needed - energy_home >= lowest:
+        if bus['position'] != GARAGE:
+            bus['route'].append({'start': bus['position'], 'end': GARAGE,
+                                 'start_time': bus['free_from'], 'end_time': arrival,
+                                 'activity': 'material trip', 'line': None,
+                                 'energy': to_garage_km * ENERGY_PER_KM})
+        bus['route'].append({'start': GARAGE, 'end': GARAGE,
+                             'start_time': arrival, 'end_time': charge_end,
+                             'activity': 'charging', 'line': None,
+                             'energy': -(battery_after - battery_on_arrival)})
+        bus['position'] = GARAGE
+        bus['free_from'] = charge_end
+        bus['battery'] = battery_after
+        return True
+
+    return False
+
+def build_plan(trips, lookup, lowest,highest, start_charge):
+    buses = []
+
+    
+    for trip in trips:
+        bus = find_free_bus(buses, trip, lookup, lowest)
+        if bus is None:
+            for b in buses:
+                if charge_bus(b, trip, lookup, lowest, highest):
+                    bus = b
+                    break
+        if bus is None:
+            bus = create_new_bus(buses, trip, lookup, start_charge)
+        assign_trip(bus, trip, lookup)                     
+
+    
+    for bus in buses:
+        if bus['position'] != GARAGE:
+            drive_km, drive_minutes = get_drive(lookup, bus['position'], GARAGE)
+            energy = drive_km * ENERGY_PER_KM
+            bus['route'].append({'start': bus['position'], 'end': GARAGE,
+                                 'start_time': bus['free_from'], 'end_time': bus['free_from'] + drive_minutes,
+                                 'activity': 'material trip', 'line': None,
+                                 'energy': energy})
+            bus['battery'] = bus['battery'] - energy
+            bus['free_from'] = bus['free_from'] + drive_minutes
+            bus['position'] = GARAGE
+
+    
+    number_of_buses = len(buses)
+    return buses, number_of_buses
+
+usable, lowest, highest, start_charge = battery_limits(300, 0.85)
+buses, number_of_buses = build_plan(trips, lookup, lowest, highest, start_charge)
+print(number_of_buses)
+
+total_rows = 0
+for bus in buses:
+    total_rows = total_rows + len(bus['route'])
+print(total_rows)
