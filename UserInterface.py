@@ -160,6 +160,114 @@ if st.session_state.get("optimized_df") is not None:
 
     st.divider()
 
+    # --- GANTT CHART ---
+    st.subheader("📅 Schedule Gantt Chart")
+    
+    gantt_df = st.session_state.optimized_df.copy()
+    
+    # 1. Sort buses numerically (Bus 1, Bus 2, Bus 3...)
+    gantt_df['bus_num'] = pd.to_numeric(gantt_df['bus'])
+    gantt_df = gantt_df.sort_values(by=['bus_num', 'start time'])
+    gantt_df['bus_label'] = "Bus " + gantt_df['bus_num'].astype(str)
+    
+    # 2. Format datetimes for Plotly timeline
+    dummy_date = "2026-01-01 "
+    gantt_df['start_dt'] = pd.to_datetime(dummy_date + gantt_df['start time'].astype(str))
+    gantt_df['end_dt'] = pd.to_datetime(dummy_date + gantt_df['end time'].astype(str))
+    gantt_df.loc[gantt_df['end_dt'] < gantt_df['start_dt'], 'end_dt'] += pd.Timedelta(days=1)
+    
+    # Calculate exact duration in minutes
+    gantt_df['duration_mins'] = ((gantt_df['end_dt'] - gantt_df['start_dt']).dt.total_seconds() / 60).astype(int)
+
+    # 3. Filter out 0-minute idle events so tiny gaps don't trigger false hovers
+    gantt_df = gantt_df[~((gantt_df['activity'] == 'idle') & (gantt_df['duration_mins'] <= 0))].copy()
+
+    # 4. Create short text labels to display inside the bars
+    def make_label(row):
+        if row['activity'] == 'service trip' and pd.notna(row['line']):
+            return f"L{int(row['line'])}"
+        elif row['activity'] == 'charging':
+            return f"⚡ {row['duration_mins']}m"
+        elif row['duration_mins'] >= 10:
+            return f"{row['duration_mins']}m"
+        return ""
+
+    gantt_df['label_text'] = gantt_df.apply(make_label, axis=1)
+
+    # 5. Calculate dynamic height for thicker rows (45px per bus)
+    num_buses = gantt_df['bus_num'].nunique()
+    chart_height = max(400, num_buses * 45)
+
+# 6. Build Gantt Chart (Using hover_data passes columns safely to customdata for traces)
+    fig_gantt = px.timeline(
+        gantt_df,
+        x_start="start_dt",
+        x_end="end_dt",
+        y="bus_label",
+        color="activity",
+        text="label_text",
+        title="Bus Activity Timeline",
+        labels={"bus_label": "Bus", "activity": "Activity Type"},
+        hover_data=["activity", "line", "start location", "end location", "start time", "end time", "duration_mins", "energy consumption"],
+        color_discrete_map={
+            "service trip": "#1f77b4",   # Blue
+            "material trip": "#ff7f0e",  # Orange
+            "charging": "#2ca02c",       # Green
+            "idle": "#7f7f7f"            # Gray
+        }
+    )
+
+    # 7. Axis formatting
+    fig_gantt.update_yaxes(
+        autorange="reversed", 
+        title_text="Bus Number"
+    )
+    
+    fig_gantt.update_xaxes(
+        tickformat="%H:%M",
+        dtick=1800000,        # Vertical gridlines every 30 minutes
+        showgrid=True,
+        gridcolor="#333333",
+        gridwidth=1,
+        title_text="Time (HH:MM)"
+    )
+
+    # 8. Configure hover card template using indices from hover_data
+    fig_gantt.update_traces(
+        textposition="inside",
+        insidetextanchor="middle",
+        marker_line_color="black",
+        marker_line_width=1,
+        hovertemplate=(
+            "<b>%{y}</b><br>" +
+            "<b>Activity:</b> %{customdata[0]}<br>" +
+            "<b>Line:</b> %{customdata[1]}<br>" +
+            "<b>Route:</b> %{customdata[2]} ➔ %{customdata[3]}<br>" +
+            "<b>Time:</b> %{customdata[4]} - %{customdata[5]} (%{customdata[6]} mins)<br>" +
+            "<b>Energy:</b> %{customdata[7]:.2f} kWh<extra></extra>"
+        )
+    )
+
+    # 9. Layout settings
+    fig_gantt.update_layout(
+        height=chart_height,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        margin=dict(l=20, r=20, t=60, b=20)
+    )
+
+    st.plotly_chart(fig_gantt, use_container_width=True)
+
+
+
+
+    st.divider()
+
     st.markdown("📥 Export Result")
     st.download_button(
         label="Download Improved Bus Plan (.xlsx)",
