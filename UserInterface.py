@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-
+import io
 
 import lucatesting as t
 import Algorithm as a
@@ -17,6 +17,8 @@ st.set_page_config(
 st.title("🚌 Transdev Eindhoven: Bus Plan Verification & Optimization Tool")
 st.markdown("Software tool for checking schedule feasibility and KPIs for bus lines 400 and 401.")
 
+if "total_buses" not in st.session_state:
+    st.session_state.total_buses = 0
 
 col1, col2 = st.columns([1, 1], gap="large")
 
@@ -66,24 +68,20 @@ with col2:
                 st.error(f"❌ Found {len(invalid_trips_df)} service/material trips with negative consumption:")
                 st.dataframe(invalid_trips_df, use_container_width=True)
 
-            #Test 4
-            zero_idle_df = t.idle_with_zero_minutes(df)
-            if zero_idle_df.empty:
-                #st.success("✅ No idle times with zero minutes found.")
-                successcount = successcount+1
-            else:
-                st.warning(f" Found {len(zero_idle_df)} idle activities with 0 duration:")
-                st.dataframe(zero_idle_df, use_container_width=True)
 
-            #Test 5
-            neg_distance_idx = t.minus_distance(df)
+            #Test 4
+            try:
+                dm_df = pd.read_excel('DistanceMatrix.xlsx')
+                neg_distance_idx = t.minus_distance(dm_df)
+            except FileNotFoundError:
+                st.error("⚠️ Could not find 'DistanceMatrix.xlsx' in the project folder.")
             if len(neg_distance_idx) == 0:
                 successcount += 1
             else:
                 st.error(f"❌ Found {len(neg_distance_idx)} records with negative distances:")
                 st.dataframe(df.loc[neg_distance_idx], use_container_width=True)
 
-            #Test 6
+            #Test 5
             error_dest_trips = t.trip_with_the_same_start_and_end(df)
             if error_dest_trips.empty:
                 successcount += 1
@@ -91,52 +89,88 @@ with col2:
                 st.error(f"❌ Found {len(error_dest_trips)} trips where the start and end locations are the same:")
                 st.dataframe(error_dest_trips, use_container_width=True)
 
-            # Test 7: Check for nulls (excluding the 'line' column)
-                num_of_nulls = t.check_nulls(df)
-                if num_of_nulls == 0:
-                    successcount += 1
-                else:
-                    st.error(f"❌ Found {num_of_nulls} missing/null values in the dataset (excluding 'line' column).")
+            # Test 6: Check for nulls (excluding the 'line' column)
+            num_of_nulls = t.check_nulls(df)
+            if num_of_nulls == 0:
+                successcount += 1
+            else:
+                st.error(f"❌ Found {num_of_nulls} missing/null values in the dataset (excluding 'line' column).")
 
-            # Test 8
-                num_duplicates = t.check_duplicates(df)
-                if num_duplicates == 0:
-                    successcount += 1
-                else:
-                    st.error(f"❌ Found {num_duplicates} duplicate rows in the dataset.")        
+            # Test 7
+            num_duplicates = t.check_duplicates(df)
+            if num_duplicates == 0:
+                successcount += 1
+            else:
+                st.error(f"❌ Found {num_duplicates} duplicate rows in the dataset.")        
 
 
-            if successcount == 8:
+            if successcount == 7:
                 st.success("✅ No errors in the data!")
 
         else:
             st.error("Please upload a file first!")
 
-    
-    
-    
+
 
 st.subheader("Improve bus planning")
 
 if st.button("🚀 Improve this bus planning", use_container_width=True):
         if uploaded_file is not None:
-            # optimization algorithm here
-            st.info("🔄 Running optimization algorithm...")
+        
+            with st.spinner("🔄 Running optimization algorithm..."):
+
+                timetable_df = pd.read_excel(uploaded_file)
+            
+            # 2. Load the distance matrix (assuming it is saved in the same folder as your script)
+            # If it's a sheet inside the uploaded file instead, use: pd.read_excel(uploaded_file, sheet_name='DistanceMatrix')
+                distance_df = pd.read_excel('DistanceMatrix.xlsx')
+            
+            # 3. Call the functions from your optimizer.py file
+                lookup = a.make_distance_lookup('DistanceMatrix.xlsx')
+                usable, lowest, highest, start_charge = a.battery_limits(300, 0.85)
+                trips = a.load_trips(uploaded_file, 'DistanceMatrix.xlsx')
+            
+                buses, number_of_buses = a.build_plan(trips, lookup, lowest, highest, start_charge)
+            
+            # 4. Convert the result and store it in session state for the download button
+                st.session_state.optimized_df = a.convert_plan_to_dataframe(buses)
+                st.session_state.total_buses = number_of_buses
+
         else:
             st.error("Please upload a file first!")
 
 
-st.markdown("📥 Export Result")
+
+if st.session_state.get("optimized_df") is not None:
     
-st.download_button(
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        st.session_state.optimized_df.to_excel(writer, index=False, sheet_name='Improved_Plan')
+    excel_data = output.getvalue()
+
+    st.divider()
+
+    st.subheader("📋 Optimized Bus Plan Preview")
+    st.dataframe(st.session_state.optimized_df.head(), use_container_width=True)
+
+    st.divider()
+
+    st.subheader("📊 Number of buses")
+    st.metric(label="Total Buses Required", value=st.session_state.total_buses)
+
+    st.divider()
+
+    st.markdown("📥 Export Result")
+    st.download_button(
         label="Download Improved Bus Plan (.xlsx)",
-        data=b"placeholder_data",  # final dataframe converted to bytes later
+        data=excel_data,
         file_name="improved_bus_planning.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
 
-st.subheader("📊 Number of buses")
+    st.divider()
+
 
 
 

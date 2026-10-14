@@ -46,9 +46,24 @@ def time_to_minutes(text):
     return hours + minutes
 
 def load_trips(timetable_file, distance_file):
-    timetable = pd.read_excel(timetable_file)
-    distance = pd.read_excel(distance_file)
+    timetable = timetable_file if isinstance(timetable_file, pd.DataFrame) else pd.read_excel(timetable_file)
+    distance = distance_file if isinstance(distance_file, pd.DataFrame) else pd.read_excel(distance_file)
 
+    timetable.columns = timetable.columns.str.strip()
+    timetable = timetable.rename(columns={
+        'start location': 'start',
+        'end location': 'end',
+        'start_location': 'start',
+        'end_location': 'end',
+        'start time': 'departure_time',
+        'departure': 'departure_time'
+    })
+
+
+    if 'activity' in timetable.columns:
+        timetable = timetable[timetable['activity'] == 'service trip']
+
+    timetable = timetable.dropna(subset=['line']).reset_index(drop=True)
     
     trip_info = {}
     for i in range(len(distance)):
@@ -58,6 +73,8 @@ def load_trips(timetable_file, distance_file):
             km = float(distance.loc[i,'distance_m']/1000)
             duration = distance.loc[i,'max_travel_time']
             trip_info[key] = (km, duration)
+
+
 
    
     trips = []
@@ -255,3 +272,18 @@ trips = load_trips('Timetable.xlsx', 'DistanceMatrix.xlsx')
 buses, number_of_buses = build_plan(trips, lookup, lowest, highest, start_charge)
 save_plan(buses, 'our_bus_plan.xlsx')
 print('Bus plan saved to our_bus_plan.xlsx with', number_of_buses, 'buses')
+
+
+def convert_plan_to_dataframe(buses):
+    rows = []
+    for bus in buses:
+        for row in bus['route']:
+            rows.append({'start location': row['start'],
+                         'end location': row['end'],
+                         'start time': minutes_to_time(row['start_time']),
+                         'end time': minutes_to_time(row['end_time']),
+                         'activity': row['activity'],
+                         'line': row['line'],
+                         'energy consumption': row['energy'],
+                         'bus': bus['id']})
+    return pd.DataFrame(rows)
