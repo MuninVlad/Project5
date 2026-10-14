@@ -103,8 +103,15 @@ with col2:
             else:
                 st.error(f"❌ Found {num_duplicates} duplicate rows in the dataset.")        
 
+            # Test 8 
+            invalid_times = t.invalid_trip_time(df)
+            if len(invalid_times) ==0:
+                successcount += 1
+            else:
+                st.error(f'❌ Found {len(invalid_times)} invalid planned times')
+                # st.error(f'invalid travelling time for {len(invalid_times)} trips\n{invalid_times}')
 
-            if successcount == 7:
+            if successcount == 8:
                 st.success("✅ No errors in the data!")
 
         else:
