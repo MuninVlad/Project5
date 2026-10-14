@@ -1,11 +1,11 @@
 import pandas as pd 
 import math
 
-ENERGY_PER_KM = 1.2           
+ENERGY_PER_KM = 1.6           
 IDLE_PER_MIN = 5 / 60         
 CHARGE_PER_MIN = 450 / 60     
 MIN_CHARGE_TIME = 15          
-EXTRA_WAIT = 0               
+BUFFER = 0          
 GARAGE = 'ehvgar'
 
 def make_distance_lookup(distance_file):
@@ -106,11 +106,11 @@ def find_free_bus(buses, trip, lookup, lowest):
     for bus in buses:                                  
         empty_km, empty_minutes = get_drive(lookup, bus['position'], trip['start'])        
         waiting = trip['departure'] - (bus['free_from'] + empty_minutes)                    
-        energy_needed = (empty_km + trip['km']) * ENERGY_PER_KM + (waiting + EXTRA_WAIT) * IDLE_PER_MIN   
+        energy_needed = (empty_km + trip['km']) * ENERGY_PER_KM + (waiting + BUFFER) * IDLE_PER_MIN   
         home_km, home_minutes = get_drive(lookup, trip['end'], GARAGE)       
         energy_home = home_km * ENERGY_PER_KM
 
-        if waiting >= 0 and bus['battery'] - energy_needed - energy_home >= lowest:                           
+        if waiting >= BUFFER and bus['battery'] - energy_needed - energy_home >= lowest:                           
             if chosen_bus is None or empty_km < shortest_empty or (empty_km == shortest_empty and bus['battery'] < chosen_bus['battery']):   
                 chosen_bus = bus                                   
                 shortest_empty = empty_km                                 
@@ -122,14 +122,14 @@ def create_new_bus(buses, trip, lookup, start_charge):
 
     new_bus = {'id': len(buses) + 1 ,
                'position': GARAGE,
-               'free_from': trip['departure'] - drive_minutes,
+               'free_from': trip['departure'] - drive_minutes - BUFFER,
                'battery': start_charge,
                'route': []}
 
     buses.append(new_bus)
     return new_bus
 
-def assign_trip(bus, trip, lookup):
+def assign_trip(bus, trip, lookup): 
 
     
     if bus['position'] != trip['start']:
@@ -173,7 +173,7 @@ def charge_bus(bus, trip, lookup, lowest, highest):
 
     
     to_start_km, to_start_minutes = get_drive(lookup, GARAGE, trip['start'])
-    latest_end = trip['departure'] - to_start_minutes
+    latest_end = trip['departure'] - to_start_minutes - BUFFER
 
     
     charge_end = arrival + (highest - battery_on_arrival) / CHARGE_PER_MIN
@@ -189,7 +189,7 @@ def charge_bus(bus, trip, lookup, lowest, highest):
         battery_after = highest
 
     waiting = trip['departure'] - (charge_end + to_start_minutes)
-    energy_needed = (to_start_km + trip['km']) * ENERGY_PER_KM + (waiting + EXTRA_WAIT) * IDLE_PER_MIN
+    energy_needed = (to_start_km + trip['km']) * ENERGY_PER_KM + waiting * IDLE_PER_MIN
     home_km, home_minutes = get_drive(lookup, trip['end'], GARAGE)
     energy_home = home_km * ENERGY_PER_KM
 
@@ -270,6 +270,7 @@ lookup = make_distance_lookup('DistanceMatrix.xlsx')
 usable, lowest, highest, start_charge = battery_limits(300, 0.85)
 trips = load_trips('Timetable.xlsx', 'DistanceMatrix.xlsx')
 buses, number_of_buses = build_plan(trips, lookup, lowest, highest, start_charge)
+
 save_plan(buses, 'our_bus_plan.xlsx')
 print('Bus plan saved to our_bus_plan.xlsx with', number_of_buses, 'buses')
 
