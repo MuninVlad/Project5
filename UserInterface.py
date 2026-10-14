@@ -4,6 +4,9 @@ import plotly.express as px
 
 
 import lucatesting as t
+import Algorithm as a
+
+
 
 st.set_page_config(
     page_title="Transdev Bus Planning Tool",
@@ -39,7 +42,7 @@ with col2:
             #Test 1
             coltest = t.check_columnsbp(df)
             if coltest:
-                st.success("All required columns are present!")
+                #st.success("All required columns are present!")
                 successcount = successcount+1
             else:
                 st.error("Missing required columns in the dataset.")
@@ -47,7 +50,7 @@ with col2:
             #Test 2
             chargingtest = t.consumption_during_chargin(df)
             if chargingtest.empty:
-                st.success("✅ All charging activities are correct.")
+                #st.success("✅ All charging activities are correct.")
                 successcount = successcount+1
             else:
                 st.error(f"❌ Found {len(chargingtest)} invalid charging activities (consumption >= 0):")
@@ -57,7 +60,7 @@ with col2:
             #Test 3
             invalid_trips_df = t.trips_with_negative_consumption(df)
             if invalid_trips_df.empty:
-                st.success("✅ All trips have correct positive consumption.")
+                #st.success("✅ All trips have correct positive consumption.")
                 successcount = successcount+1
             else:
                 st.error(f"❌ Found {len(invalid_trips_df)} service/material trips with negative consumption:")
@@ -66,15 +69,45 @@ with col2:
             #Test 4
             zero_idle_df = t.idle_with_zero_minutes(df)
             if zero_idle_df.empty:
-                st.success("✅ No idle times with zero minutes found.")
+                #st.success("✅ No idle times with zero minutes found.")
                 successcount = successcount+1
             else:
                 st.warning(f" Found {len(zero_idle_df)} idle activities with 0 duration:")
                 st.dataframe(zero_idle_df, use_container_width=True)
 
+            #Test 5
+            neg_distance_idx = t.minus_distance(df)
+            if len(neg_distance_idx) == 0:
+                successcount += 1
+            else:
+                st.error(f"❌ Found {len(neg_distance_idx)} records with negative distances:")
+                st.dataframe(df.loc[neg_distance_idx], use_container_width=True)
 
-            if successcount == 4:
-                st.success("✅ No errors in the data")
+            #Test 6
+            error_dest_trips = t.trip_with_the_same_start_and_end(df)
+            if error_dest_trips.empty:
+                successcount += 1
+            else:
+                st.error(f"❌ Found {len(error_dest_trips)} trips where the start and end locations are the same:")
+                st.dataframe(error_dest_trips, use_container_width=True)
+
+            # Test 7: Check for nulls (excluding the 'line' column)
+                num_of_nulls = t.check_nulls(df)
+                if num_of_nulls == 0:
+                    successcount += 1
+                else:
+                    st.error(f"❌ Found {num_of_nulls} missing/null values in the dataset (excluding 'line' column).")
+
+            # Test 8
+                num_duplicates = t.check_duplicates(df)
+                if num_duplicates == 0:
+                    successcount += 1
+                else:
+                    st.error(f"❌ Found {num_duplicates} duplicate rows in the dataset.")        
+
+
+            if successcount == 8:
+                st.success("✅ No errors in the data!")
 
         else:
             st.error("Please upload a file first!")
@@ -104,4 +137,6 @@ st.download_button(
     )
 
 st.subheader("📊 Number of buses")
+
+
 
