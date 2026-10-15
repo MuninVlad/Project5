@@ -1,12 +1,13 @@
 import pandas as pd 
 import math
 
-ENERGY_PER_KM = 1.2       
+ENERGY_PER_KM = 1.2      #1 
 IDLE_PER_MIN = 5 / 60         
 CHARGE_PER_MIN = 450 / 60     
 MIN_CHARGE_TIME = 15          
-BUFFER = 0          
+BUFFER = 0       #2   
 GARAGE = 'ehvgar'
+StateOfHealth=0.85
 
 def make_distance_lookup(distance_file):
     distance = pd.read_excel(distance_file)
@@ -267,12 +268,13 @@ def save_plan(buses, file_name):
     table.to_excel(file_name, index=False)
 
 lookup = make_distance_lookup('DistanceMatrix.xlsx')
-usable, lowest, highest, start_charge = battery_limits(300, 0.85)
+usable, lowest, highest, start_charge = battery_limits(300, StateOfHealth)
 trips = load_trips('Timetable.xlsx', 'DistanceMatrix.xlsx')
 buses, number_of_buses = build_plan(trips, lookup, lowest, highest, start_charge)
 
 save_plan(buses, 'our_bus_plan.xlsx')
 print('Bus plan saved to our_bus_plan.xlsx with', number_of_buses, 'buses')
+
 
 
 def convert_plan_to_dataframe(buses):
