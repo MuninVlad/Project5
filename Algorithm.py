@@ -1,7 +1,7 @@
 import pandas as pd 
 import math
 
-ENERGY_PER_KM = 1.6           
+ENERGY_PER_KM = 1.2       
 IDLE_PER_MIN = 5 / 60         
 CHARGE_PER_MIN = 450 / 60     
 MIN_CHARGE_TIME = 15          
