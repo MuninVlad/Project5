@@ -89,7 +89,7 @@ with col2:
                     st.dataframe(invalid_trips_df, use_container_width=True)
 
 
-            #Test 4
+                #Test 4
                 try:
                     dm_df = pd.read_excel('DistanceMatrix.xlsx')
                     neg_distance_idx = t.minus_distance(dm_df)
@@ -139,15 +139,29 @@ with col2:
 
 
 
+
+
+
+st.subheader("⚙️ Parameters")
+p1, p2, p3 = st.columns(3)
+with p1:
+    energy_per_km = st.number_input("Energy consumption per km (kWh/km)", min_value=0.7, value=1.2,  max_value=2.5)
+with p2:
+    buffer_min = st.number_input("Buffer (minutes)", value=0, step=1)
+with p3:
+    soh = st.number_input("State of Health", value=0.85, max_value=0.95)
+
 st.subheader("Improve bus planning")
 
-if st.button("🚀 Improve this bus planning", use_container_width=True):
+if st.button("🚀 Improve bus planning", use_container_width=True):
         if uploaded_main is not None:
-        
+
+
+            
             with st.spinner("🔄 Running optimization algorithm..."):
 
                 timetable_df = pd.read_excel(uploaded_main)
-                distance_df = pd.read_excel(uploaded_distance, sheet_name='DistanceMatrix')
+                distance_df = pd.read_excel(uploaded_distance)
             
 
                 lookup = a.make_distance_lookup('DistanceMatrix.xlsx')

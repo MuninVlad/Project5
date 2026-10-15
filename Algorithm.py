@@ -7,6 +7,16 @@ CHARGE_PER_MIN = 450 / 60
 MIN_CHARGE_TIME = 15          
 BUFFER = 0          
 GARAGE = 'ehvgar'
+<<<<<<< Updated upstream
+=======
+StateOfHealth=0.85 #3
+
+def set_parameters(energy_per_km, buffer, soh):
+    global ENERGY_PER_KM, BUFFER, StateOfHealth
+    ENERGY_PER_KM = energy_per_km
+    BUFFER = buffer
+    StateOfHealth = soh
+>>>>>>> Stashed changes
 
 def make_distance_lookup(distance_file):
     distance = pd.read_excel(distance_file)
