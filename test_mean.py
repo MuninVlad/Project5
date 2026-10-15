@@ -69,6 +69,12 @@ if st.button('test idle with zero minutes'):
     else:
         st.error(f'{zero_dur} idles of zero minutes')
 
+if st.button('Test trips\' time'):
+    invalid_times = tests.invalid_trip_time(bp)
+    if len(invalid_times) ==0:
+        st.success('all trips have valid time')
+    else:
+        st.error(f'invalid travelling time for {len(invalid_times)} trips\n{invalid_times}')
 
 
 
@@ -91,12 +97,6 @@ if st.button("submit distance matrix"):
 if "dm" in st.session_state:
     dm = st.session_state['dm']
 
-if st.button('Test trips\' time'):
-    invalid_times = tests.time_matrix(dm)
-    if len(invalid_times) ==0:
-        st.success('all trips have valid time')
-    else:
-        st.error(f'invalid travelling time for {len(invalid_times)} trips')
 
 if st.button('Test travel distance'):
     travel_dist = tests.minus_distance(dm)

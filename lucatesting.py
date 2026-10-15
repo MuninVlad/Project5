@@ -37,6 +37,11 @@ def trips_with_negative_consumption(bp):
     invalid_trips['excel_rows'] = invalid_trips.index + 2
     return invalid_trips[['excel_rows','activity','energy consumption']]
 
+def invalid_trip_time(bp):
+    invalid_times = bp.index[bp['start time'] > bp['end time']]
+    return invalid_times
+
+
 
 ### DISTANCE MATRIX TESTS
 
@@ -50,10 +55,10 @@ def check_columnsdm(dm):
     return result
 
 
-def time_matrix(dm):
-    # invalid_time = dm[dm['min_travel_time'] > dm['max_travel_time']]
-    neg_values = dm.index[(dm['min_travel_time'] < 0) | (dm['max_travel_time'] < 0)]
-    return neg_values
+# def time_matrix(dm):
+#     # invalid_time = dm[dm['min_travel_time'] > dm['max_travel_time']]
+#     neg_values = dm.index[(dm['min_travel_time'] < 0) | (dm['max_travel_time'] < 0)]
+#     return neg_values
 
 # test status:
 # distance is minus 
