@@ -131,8 +131,8 @@ with col2:
                     st.error(f'❌ Found {len(invalid_times)} invalid planned times {st.dataframe(invalid_times)}')                
                     # st.error(f'invalid travelling time for {len(invalid_times)} trips\n{invalid_times}')
 
-                    if successcount == 8:
-                        st.success("✅ No errors in the data!")
+                if successcount == 8:
+                    st.success("✅ No errors in the data!")
 
         else:
             st.error("Please upload a file first!")
