@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import time 
 
 
 bp = pd.read_excel('Bus Planning.xlsx')
@@ -38,8 +39,16 @@ def trips_with_negative_consumption(bp):
     return invalid_trips[['excel_rows','activity','energy consumption']]
 
 def invalid_trip_time(bp):
-    invalid_times = bp.index[bp['start time'] > bp['end time']]
-    return invalid_times
+    start = pd.to_datetime(bp['start time'].astype(str), format='mixed').dt.time
+    end = pd.to_datetime(bp['end time'].astype(str), format='mixed').dt.time
+    four_am = time(4, 0)
+
+    overnight = (start > four_am) & (end <= four_am)
+
+    return bp[(start > end) & ~overnight]
+    
+    # invalid_times = bp[bp['start time'] > bp['end time']]
+    # return invalid_times
 
 
 

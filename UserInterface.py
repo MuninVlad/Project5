@@ -108,7 +108,7 @@ with col2:
             if len(invalid_times) ==0:
                 successcount += 1
             else:
-                st.error(f'❌ Found {len(invalid_times)} invalid planned times')
+                st.error(f'❌ Found {len(invalid_times)} invalid planned times {st.dataframe(invalid_times)}')                
                 # st.error(f'invalid travelling time for {len(invalid_times)} trips\n{invalid_times}')
 
             if successcount == 8:
