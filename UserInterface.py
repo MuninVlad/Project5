@@ -5,7 +5,7 @@ import io
 
 import lucatesting as t
 import Algorithm as a
-
+import KPIs as kp
 
 
 st.set_page_config(
@@ -147,7 +147,7 @@ p1, p2, p3 = st.columns(3)
 with p1:
     energy_per_km = st.number_input("Energy consumption per km (kWh/km)", min_value=0.7, value=1.2,  max_value=2.5)
 with p2:
-    buffer_min = st.number_input("Buffer (minutes)", value=0, step=1)
+    buffer_min = st.number_input("Buffer time (minutes)", value=0, step=1)
 with p3:
     soh = st.number_input("State of Health", value=0.85, max_value=0.95)
 
@@ -160,11 +160,10 @@ if st.button("🚀 Improve bus planning", use_container_width=True):
             
             with st.spinner("🔄 Running optimization algorithm..."):
 
-                timetable_df = pd.read_excel(uploaded_main)
-                distance_df = pd.read_excel(uploaded_distance)
-            
+                a.set_parameters(energy_per_km, buffer_min, soh)
 
                 lookup = a.make_distance_lookup('DistanceMatrix.xlsx')
+                usable, lowest, highest, start_charge = a.battery_limits(300, a.StateOfHealth)
                 usable, lowest, highest, start_charge = a.battery_limits(300, 0.85)
                 trips = a.load_trips(uploaded_main, 'DistanceMatrix.xlsx')
             
@@ -173,6 +172,11 @@ if st.button("🚀 Improve bus planning", use_container_width=True):
 
                 st.session_state.optimized_df = a.convert_plan_to_dataframe(buses)
                 st.session_state.total_buses = number_of_buses
+
+                plan_buffer = io.BytesIO()
+                st.session_state.optimized_df.to_excel(plan_buffer, index=False)
+                plan_buffer.seek(0)
+                st.session_state.kpis = kp.calculations_KPIs(plan_buffer, 'DistanceMatrix.xlsx')
 
         else:
             st.error("Please upload a file first!")
@@ -193,8 +197,14 @@ if st.session_state.get("optimized_df") is not None:
 
     st.divider()
 
-    st.subheader("📊 Number of buses")
-    st.metric(label="Total Buses Required", value=st.session_state.total_buses)
+    st.subheader("📊 KPIs")
+    _, energy, deadhead_km, idle_min = st.session_state.kpis
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Buses Required", st.session_state.total_buses)
+    c2.metric("Total energy used (kWh)", round(energy, 1))
+    c3.metric("Deadhead distance (km)", round(deadhead_km, 2))
+    c4.metric("Total idle time (min)", round(idle_min))
 
     st.divider()
 

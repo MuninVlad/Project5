@@ -7,8 +7,6 @@ CHARGE_PER_MIN = 450 / 60
 MIN_CHARGE_TIME = 15          
 BUFFER = 0          
 GARAGE = 'ehvgar'
-<<<<<<< Updated upstream
-=======
 StateOfHealth=0.85 #3
 
 def set_parameters(energy_per_km, buffer, soh):
@@ -16,7 +14,6 @@ def set_parameters(energy_per_km, buffer, soh):
     ENERGY_PER_KM = energy_per_km
     BUFFER = buffer
     StateOfHealth = soh
->>>>>>> Stashed changes
 
 def make_distance_lookup(distance_file):
     distance = pd.read_excel(distance_file)
@@ -283,7 +280,6 @@ buses, number_of_buses = build_plan(trips, lookup, lowest, highest, start_charge
 
 save_plan(buses, 'our_bus_plan.xlsx')
 print('Bus plan saved to our_bus_plan.xlsx with', number_of_buses, 'buses')
-
 
 def convert_plan_to_dataframe(buses):
     rows = []
