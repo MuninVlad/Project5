@@ -25,9 +25,9 @@ col1, col2 = st.columns([1, 1], gap="large")
 with col1:
     st.subheader("📁 Upload Data")
     uploaded_main = st.file_uploader("1. Upload Bus Plan OR Timetable (.xlsx)", type=["xlsx"])
-    uploaded_distance = st.file_uploader("2. Upload Distance Matrix (Optional)", type=["xlsx"])
+    uploaded_distance = st.file_uploader("2. Upload Distance Matrix (.xlsx)", type=["xlsx"])
     
-    if uploaded_main is not None:
+    if uploaded_main is not None and uploaded_distance is not None:
         df = pd.read_excel(uploaded_main)
         
         if 'activity' in df.columns:
@@ -44,7 +44,7 @@ with col1:
         st.write("Preview of data:")
         st.dataframe(df.head(5), use_container_width=True)
     else:
-        st.info("Please upload a Bus Plan or Timetable to begin.")
+        st.info("Please upload a Bus Plan or Timetable and Distance matrix to begin.")
     
 
 with col2:
@@ -90,18 +90,6 @@ with col2:
 
 
                 #Test 4
-                try:
-                    dm_df = pd.read_excel('DistanceMatrix.xlsx')
-                    neg_distance_idx = t.minus_distance(dm_df)
-                except FileNotFoundError:
-                    st.error("⚠️ Could not find 'DistanceMatrix.xlsx' in the project folder.")
-                if len(neg_distance_idx) == 0:
-                    successcount += 1
-                else:
-                    st.error(f"❌ Found {len(neg_distance_idx)} records with negative distances:")
-                    st.dataframe(df.loc[neg_distance_idx], use_container_width=True)
-
-                #Test 5
                 error_dest_trips = t.trip_with_the_same_start_and_end(df)
                 if error_dest_trips.empty:
                     successcount += 1
@@ -109,21 +97,21 @@ with col2:
                     st.error(f"❌ Found {len(error_dest_trips)} trips where the start and end locations are the same:")
                     st.dataframe(error_dest_trips, use_container_width=True)
 
-                # Test 6: Check for nulls (excluding the 'line' column)
+                # Test 5: Check for nulls (excluding the 'line' column)
                 num_of_nulls = t.check_nulls(df)
                 if num_of_nulls == 0:
                     successcount += 1
                 else:
                     st.error(f"❌ Found {num_of_nulls} missing/null values in the dataset (excluding 'line' column).")
 
-                # Test 7
+                # Test 6
                 num_duplicates = t.check_duplicates(df)
                 if num_duplicates == 0:
                     successcount += 1
                 else:
                     st.error(f"❌ Found {num_duplicates} duplicate rows in the dataset.")        
 
-                # Test 8 
+                # Test 7 
                 invalid_times = t.invalid_trip_time(df)
                 if len(invalid_times) ==0:
                     successcount += 1
@@ -131,7 +119,7 @@ with col2:
                     st.error(f'❌ Found {len(invalid_times)} invalid planned times {st.dataframe(invalid_times)}')                
                     # st.error(f'invalid travelling time for {len(invalid_times)} trips\n{invalid_times}')
 
-                if successcount == 8:
+                if successcount == 7:
                     st.success("✅ No errors in the data!")
 
         else:
@@ -154,18 +142,20 @@ with p3:
 st.subheader("Improve bus planning")
 
 if st.button("🚀 Improve bus planning", use_container_width=True):
-        if uploaded_main is not None:
+        if uploaded_main is not None and uploaded_distance is not None:
 
-
-            
             with st.spinner("🔄 Running optimization algorithm..."):
 
                 a.set_parameters(energy_per_km, buffer_min, soh)
 
-                lookup = a.make_distance_lookup('DistanceMatrix.xlsx')
+                uploaded_distance.seek(0)
+                lookup = a.make_distance_lookup(uploaded_distance)
                 usable, lowest, highest, start_charge = a.battery_limits(300, a.StateOfHealth)
                 usable, lowest, highest, start_charge = a.battery_limits(300, 0.85)
-                trips = a.load_trips(uploaded_main, 'DistanceMatrix.xlsx')
+
+                uploaded_main.seek(0)
+                uploaded_distance.seek(0)
+                trips = a.load_trips(uploaded_main, uploaded_distance)
             
                 buses, number_of_buses = a.build_plan(trips, lookup, lowest, highest, start_charge)
             
@@ -176,7 +166,9 @@ if st.button("🚀 Improve bus planning", use_container_width=True):
                 plan_buffer = io.BytesIO()
                 st.session_state.optimized_df.to_excel(plan_buffer, index=False)
                 plan_buffer.seek(0)
-                st.session_state.kpis = kp.calculations_KPIs(plan_buffer, 'DistanceMatrix.xlsx')
+
+                uploaded_distance.seek(0)
+                st.session_state.kpis = kp.calculations_KPIs(plan_buffer, uploaded_distance)
 
         else:
             st.error("Please upload a file first!")
