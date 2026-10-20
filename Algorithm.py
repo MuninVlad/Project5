@@ -92,7 +92,7 @@ def load_trips(timetable_file, distance_file):
         departure = time_to_minutes(timetable.loc[i,'departure_time'])
 
         if departure < 240:                         
-            departure = departure + 1440                         
+            departure = departure + 1440            
 
         km, duration = trip_info[(start,end,line)]               
 
