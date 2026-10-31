@@ -63,3 +63,12 @@ print(f'The number of buses = {number_buses}')
 print(f'Total energy consumption = {total_energy}')
 print(f'Deadhead distance = {deadhead_km:.2f} km')
 print(f'Total idle time = {idle_time:.0f} minutes')
+
+if __name__ == "__main__":
+    number_buses, total_energy, deadhead_km, idle_time = calculations_KPIs(
+        'Bus Planning.xlsx', 'DistanceMatrix.xlsx')
+
+    print(f'The number of buses = {number_buses}')
+    print(f'Total energy consumption = {total_energy}')
+    print(f'Deadhead distance = {deadhead_km:.2f} km')
+    print(f'Total idle time = {idle_time:.0f} minutes')
