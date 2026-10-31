@@ -25,33 +25,60 @@ col1, col2 = st.columns([1, 1], gap="large")
 with col1:
     st.subheader("📁 Upload Data")
     uploaded_main = st.file_uploader("1. Upload Bus Plan OR Timetable (.xlsx)", type=["xlsx"])
-    uploaded_distance = st.file_uploader("2. Upload Distance Matrix (.xlsx)", type=["xlsx"])
-    
-    if uploaded_main is not None and uploaded_distance is not None:
+    uploaded_distance = st.file_uploader(
+        "2. Upload Distance Matrix (.xlsx) – optional for Bus Plan KPIs", type=["xlsx"]
+    )
+
+    if uploaded_main is not None:
         df = pd.read_excel(uploaded_main)
-        
-        if 'activity' in df.columns:
+        is_bus_plan = 'activity' in df.columns
+
+        if is_bus_plan:
             st.success("✅ Bus Plan detected and uploaded successfully!")
         else:
             st.success("✅ Timetable detected and uploaded successfully!")
-            
-        dm_source = uploaded_distance if uploaded_distance is not None else 'DistanceMatrix.xlsx'
+
         if uploaded_distance is not None:
             st.info("Using custom uploaded Distance Matrix.")
         else:
-            st.info("Using default local DistanceMatrix.xlsx.")
-            
+            st.info("No Distance Matrix uploaded, using default local DistanceMatrix.xlsx.")
+
         st.write("Preview of data:")
         st.dataframe(df.head(5), use_container_width=True)
-    else:
-        st.info("Please upload a Bus Plan or Timetable and Distance matrix to begin.")
-    
 
+        if is_bus_plan:
+            st.divider()
+            st.subheader("📊 Uploaded Bus Plan KPIs")
+
+            # Reset file pointers before passing to KPI function
+            uploaded_main.seek(0)
+            if uploaded_distance is not None:
+                uploaded_distance.seek(0)
+
+            dm_to_use = uploaded_distance if uploaded_distance is not None else 'DistanceMatrix.xlsx'
+
+            try:
+                _, energy, deadhead_km, idle_min = kp.calculations_KPIs(uploaded_main, dm_to_use)
+                total_uploaded_buses = df['bus'].nunique() if 'bus' in df.columns else 0
+
+                k1, k2, k3, k4 = st.columns(4)
+                k1.metric("Total Buses Required", total_uploaded_buses)
+                k2.metric("Total energy used (kWh)", round(energy, 1))
+                k3.metric("Deadhead distance (km)", round(deadhead_km, 2))
+                k4.metric("Total idle time (min)", round(idle_min))
+            except FileNotFoundError:
+                st.warning("⚠️ Default DistanceMatrix.xlsx not found. Please upload a Distance Matrix to see the KPIs.")
+    else:
+        st.info("Please upload a Bus Plan or Timetable to begin.")
+
+
+        
 with col2:
     st.subheader('Error checking')
 
     if st.button("🔍 Check for errors", use_container_width=True):
         if uploaded_main is not None:
+            uploaded_main.seek(0)
             df = pd.read_excel(uploaded_main)
 
             if 'activity' not in df.columns or 'energy consumption' not in df.columns:
