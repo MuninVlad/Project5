@@ -353,13 +353,6 @@ if st.session_state.get("optimized_df") is not None:
 
     st.plotly_chart(fig_gantt, use_container_width=True)
 
-    # --- LOWEST BATTERY LEVEL CHECK ---
-    min_pct = lowest / usable * 100
-    lowest_point = gantt_df['battery_pct'].min()
-    if lowest_point < min_pct:
-        st.error(f"❌ Battery drops to {lowest_point:.0f}% for at least one bus (minimum is {min_pct:.0f}%).")
-    else:
-        st.success(f"✅ Lowest battery level of the day: {lowest_point:.0f}% (minimum is {min_pct:.0f}%).")
 
 
 
