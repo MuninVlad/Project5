@@ -26,7 +26,7 @@ with col1:
     st.subheader("📁 Upload Data")
     uploaded_main = st.file_uploader("1. Upload Bus Plan OR Timetable (.xlsx)", type=["xlsx"])
     uploaded_distance = st.file_uploader(
-        "2. Upload Distance Matrix (.xlsx) – optional for Bus Plan KPIs", type=["xlsx"]
+        "2. Upload Distance Matrix (.xlsx) – only upload with time table", type=["xlsx"]
     )
 
     if uploaded_main is not None:
@@ -69,7 +69,7 @@ with col1:
             except FileNotFoundError:
                 st.warning("⚠️ Default DistanceMatrix.xlsx not found. Please upload a Distance Matrix to see the KPIs.")
     else:
-        st.info("Please upload a Bus Plan or Timetable to begin.")
+        st.info("Please upload a Bus Plan OR Timetable and Distance Matrix to begin.")
 
 
         
