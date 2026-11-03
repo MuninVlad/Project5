@@ -146,15 +146,64 @@ with col2:
                     st.error(f'❌ Found {len(invalid_times)} invalid planned times {st.dataframe(invalid_times)}')                
                     # st.error(f'invalid travelling time for {len(invalid_times)} trips\n{invalid_times}')
 
-                if successcount == 7:
+                total_tests = 11
+
+                # Tests 8-12 need the required columns
+                if not coltest:
+                    total_tests = 7
+                    st.warning("⚠️ Skipping the feasibility checks because required columns are missing.")
+                else:
+
+                    # Test 8
+                    overlaps = t.overlapping_activities(df)
+                    if overlaps.empty:
+                        successcount += 1
+                    else:
+                        st.error(f"❌ Found {len(overlaps)} activities that overlap with the bus's previous activity:")
+                        st.dataframe(overlaps, use_container_width=True)
+
+                    # Test 9
+                    mismatches = t.location_mismatch(df)
+                    if mismatches.empty:
+                        successcount += 1
+                    else:
+                        st.error(f"❌ Found {len(mismatches)} activities that don't start where the bus's previous activity ended:")
+                        st.dataframe(mismatches, use_container_width=True)
+
+                    # # Test 10
+                    # try:
+                    #     timetable = pd.read_excel('Timetable.xlsx')
+                    #     coverage = t.timetable_coverage(df, timetable)
+                    #     if coverage.empty:
+                    #         successcount += 1
+                    #     else:
+                    #         st.error(f"❌ Found {len(coverage)} timetable trips that are missing, duplicated or not in the timetable:")
+                    #         st.dataframe(coverage, use_container_width=True)
+                    # except FileNotFoundError:
+                    #     total_tests -= 1
+                    #     st.warning("⚠️ Default Timetable.xlsx not found, skipping the timetable coverage check.")
+
+                    # Test 11
+                    low_battery = t.battery_below_minimum(df, soh=st.session_state.get('soh', 0.85))
+                    if low_battery.empty:
+                        successcount += 1
+                    else:
+                        st.error(f"❌ Found {len(low_battery)} activities where the battery is below 10% of usable capacity:")
+                        st.dataframe(low_battery, use_container_width=True)
+
+                    # Test 12
+                    short_charges = t.short_charging(df)
+                    if short_charges.empty:
+                        successcount += 1
+                    else:
+                        st.error(f"❌ Found {len(short_charges)} charging sessions shorter than 15 minutes:")
+                        st.dataframe(short_charges, use_container_width=True)
+
+                if successcount == total_tests:
                     st.success("✅ No errors in the data!")
 
         else:
             st.error("Please upload a file first!")
-
-
-
-
 
 
 st.subheader("⚙️ Parameters")
@@ -164,7 +213,7 @@ with p1:
 with p2:
     buffer_min = st.number_input("Buffer time (minutes)", value=0, step=1)
 with p3:
-    soh = st.number_input("State of Health", value=0.85, max_value=0.95)
+    soh = st.number_input("State of Health", value=0.85, max_value=0.95, key='soh')
 
 st.subheader("Improve bus planning")
 
