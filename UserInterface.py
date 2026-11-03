@@ -353,39 +353,8 @@ if st.session_state.get("optimized_df") is not None:
 
     st.plotly_chart(fig_gantt, use_container_width=True)
 
-    # --- BATTERY LEVEL OVER THE DAY ---
-    st.subheader("🔋 Battery Level per Bus")
-
-    # One point at the start of the day, then one point after every activity
-    battery_points = []
-    for bus_label, rows in gantt_df.groupby('bus_label', sort=False):
-        first = rows.iloc[0]
-        battery_points.append({'bus_label': bus_label, 'time': first['start_dt'],
-                               'battery_pct': round(start_charge / usable * 100, 1),
-                               'battery_kwh': start_charge, 'activity': 'start of day'})
-        for _, row in rows.iterrows():
-            battery_points.append({'bus_label': bus_label, 'time': row['end_dt'],
-                                   'battery_pct': row['battery_pct'],
-                                   'battery_kwh': row['battery_kwh'], 'activity': row['activity']})
-    battery_df = pd.DataFrame(battery_points)
-
-    all_buses = list(gantt_df['bus_label'].unique())
-    chosen_buses = st.multiselect("Show buses", all_buses, default=all_buses)
-    battery_df = battery_df[battery_df['bus_label'].isin(chosen_buses)]
-
-    fig_battery = px.line(
-        battery_df, x="time", y="battery_pct", color="bus_label", markers=True,
-        labels={"time": "Time (HH:MM)", "battery_pct": "Battery level (%)", "bus_label": "Bus"},
-        hover_data={"activity": True, "battery_kwh": ":.1f", "battery_pct": ":.0f"}
-    )
+    # --- LOWEST BATTERY LEVEL CHECK ---
     min_pct = lowest / usable * 100
-    fig_battery.add_hline(y=min_pct, line_dash="dash", line_color="red",
-                          annotation_text=f"Minimum {min_pct:.0f}%", annotation_position="bottom right")
-    fig_battery.update_yaxes(range=[0, 100])
-    fig_battery.update_xaxes(tickformat="%H:%M", dtick=3600000)
-    fig_battery.update_layout(height=450, margin=dict(l=20, r=20, t=30, b=20))
-    st.plotly_chart(fig_battery, use_container_width=True)
-
     lowest_point = gantt_df['battery_pct'].min()
     if lowest_point < min_pct:
         st.error(f"❌ Battery drops to {lowest_point:.0f}% for at least one bus (minimum is {min_pct:.0f}%).")
