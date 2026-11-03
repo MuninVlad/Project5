@@ -178,7 +178,11 @@ if st.button("🚀 Improve bus planning", use_container_width=True):
                 uploaded_distance.seek(0)
                 lookup = a.make_distance_lookup(uploaded_distance)
                 usable, lowest, highest, start_charge = a.battery_limits(300, a.StateOfHealth)
-                usable, lowest, highest, start_charge = a.battery_limits(300, 0.85)
+
+                # Save battery values so the Gantt chart can show battery levels
+                st.session_state.usable = usable
+                st.session_state.lowest = lowest
+                st.session_state.start_charge = start_charge
 
                 uploaded_main.seek(0)
                 uploaded_distance.seek(0)
@@ -231,18 +235,32 @@ if st.session_state.get("optimized_df") is not None:
     st.subheader("📅 Schedule Gantt Chart")
     
     gantt_df = st.session_state.optimized_df.copy()
-    
-    # 1. Sort buses numerically (Bus 1, Bus 2, Bus 3...)
     gantt_df['bus_num'] = pd.to_numeric(gantt_df['bus'])
-    gantt_df = gantt_df.sort_values(by=['bus_num', 'start time'])
     gantt_df['bus_label'] = "Bus " + gantt_df['bus_num'].astype(str)
-    
+
+    # 1. Battery level after every activity
+    #    The rows of each bus are already in time order, so we can take a running total.
+    #    Charging rows have negative energy consumption, so they raise the battery level.
+    usable = st.session_state.get("usable", 300 * 0.85)
+    start_charge = st.session_state.get("start_charge", usable * 0.9)
+    lowest = st.session_state.get("lowest", usable * 0.1)
+    gantt_df['energy consumption'] = pd.to_numeric(gantt_df['energy consumption'], errors='coerce').fillna(0)
+    gantt_df['battery_kwh'] = start_charge - gantt_df.groupby('bus_num')['energy consumption'].cumsum()
+    gantt_df['battery_pct'] = (gantt_df['battery_kwh'] / usable * 100).round(1)
+
     # 2. Format datetimes for Plotly timeline
+    #    Times before 04:00 belong to the night after the service day (same rule as the algorithm),
+    #    so they are moved to the next day instead of being drawn at the start of the chart.
     dummy_date = "2026-01-01 "
     gantt_df['start_dt'] = pd.to_datetime(dummy_date + gantt_df['start time'].astype(str))
     gantt_df['end_dt'] = pd.to_datetime(dummy_date + gantt_df['end time'].astype(str))
+    gantt_df.loc[gantt_df['start_dt'].dt.hour < 4, 'start_dt'] += pd.Timedelta(days=1)
+    gantt_df.loc[gantt_df['end_dt'].dt.hour < 4, 'end_dt'] += pd.Timedelta(days=1)
     gantt_df.loc[gantt_df['end_dt'] < gantt_df['start_dt'], 'end_dt'] += pd.Timedelta(days=1)
-    
+
+    # 3. Sort buses numerically (Bus 1, Bus 2, Bus 3...) and by real time
+    gantt_df = gantt_df.sort_values(by=['bus_num', 'start_dt'])
+
     # Calculate exact duration in minutes
     gantt_df['duration_mins'] = ((gantt_df['end_dt'] - gantt_df['start_dt']).dt.total_seconds() / 60).astype(int)
 
@@ -250,11 +268,13 @@ if st.session_state.get("optimized_df") is not None:
     gantt_df = gantt_df[~((gantt_df['activity'] == 'idle') & (gantt_df['duration_mins'] <= 0))].copy()
 
     # 4. Create short text labels to display inside the bars
+    #    Service trips and charging show the battery level (%) at the end of that activity
     def make_label(row):
+        pct = f"{row['battery_pct']:.0f}%"
         if row['activity'] == 'service trip' and pd.notna(row['line']):
-            return f"L{int(row['line'])}"
+            return f"L{int(row['line'])} · {pct}"
         elif row['activity'] == 'charging':
-            return f"⚡ {row['duration_mins']}m"
+            return f"⚡ {row['duration_mins']}m → {pct}"
         elif row['duration_mins'] >= 10:
             return f"{row['duration_mins']}m"
         return ""
@@ -275,7 +295,7 @@ if st.session_state.get("optimized_df") is not None:
         text="label_text",
         title="Bus Activity Timeline",
         labels={"bus_label": "Bus", "activity": "Activity Type"},
-        hover_data=["activity", "line", "start location", "end location", "start time", "end time", "duration_mins", "energy consumption"],
+        hover_data=["activity", "line", "start location", "end location", "start time", "end time", "duration_mins", "energy consumption", "battery_kwh", "battery_pct"],
         color_discrete_map={
             "service trip": "#1f77b4",   # Blue
             "material trip": "#ff7f0e",  # Orange
@@ -311,7 +331,8 @@ if st.session_state.get("optimized_df") is not None:
             "<b>Line:</b> %{customdata[1]}<br>" +
             "<b>Route:</b> %{customdata[2]} ➔ %{customdata[3]}<br>" +
             "<b>Time:</b> %{customdata[4]} - %{customdata[5]} (%{customdata[6]} mins)<br>" +
-            "<b>Energy:</b> %{customdata[7]:.2f} kWh<extra></extra>"
+            "<b>Energy:</b> %{customdata[7]:.2f} kWh<br>" +
+            "<b>Battery after:</b> %{customdata[8]:.1f} kWh (%{customdata[9]:.0f}%)<extra></extra>"
         )
     )
 
@@ -325,10 +346,51 @@ if st.session_state.get("optimized_df") is not None:
             xanchor="right",
             x=1
         ),
-        margin=dict(l=20, r=20, t=60, b=20)
+        margin=dict(l=20, r=20, t=60, b=20),
+        uniformtext_minsize=8,      # hide labels that do not fit in short bars (hover still works)
+        uniformtext_mode="hide"
     )
 
     st.plotly_chart(fig_gantt, use_container_width=True)
+
+    # --- BATTERY LEVEL OVER THE DAY ---
+    st.subheader("🔋 Battery Level per Bus")
+
+    # One point at the start of the day, then one point after every activity
+    battery_points = []
+    for bus_label, rows in gantt_df.groupby('bus_label', sort=False):
+        first = rows.iloc[0]
+        battery_points.append({'bus_label': bus_label, 'time': first['start_dt'],
+                               'battery_pct': round(start_charge / usable * 100, 1),
+                               'battery_kwh': start_charge, 'activity': 'start of day'})
+        for _, row in rows.iterrows():
+            battery_points.append({'bus_label': bus_label, 'time': row['end_dt'],
+                                   'battery_pct': row['battery_pct'],
+                                   'battery_kwh': row['battery_kwh'], 'activity': row['activity']})
+    battery_df = pd.DataFrame(battery_points)
+
+    all_buses = list(gantt_df['bus_label'].unique())
+    chosen_buses = st.multiselect("Show buses", all_buses, default=all_buses)
+    battery_df = battery_df[battery_df['bus_label'].isin(chosen_buses)]
+
+    fig_battery = px.line(
+        battery_df, x="time", y="battery_pct", color="bus_label", markers=True,
+        labels={"time": "Time (HH:MM)", "battery_pct": "Battery level (%)", "bus_label": "Bus"},
+        hover_data={"activity": True, "battery_kwh": ":.1f", "battery_pct": ":.0f"}
+    )
+    min_pct = lowest / usable * 100
+    fig_battery.add_hline(y=min_pct, line_dash="dash", line_color="red",
+                          annotation_text=f"Minimum {min_pct:.0f}%", annotation_position="bottom right")
+    fig_battery.update_yaxes(range=[0, 100])
+    fig_battery.update_xaxes(tickformat="%H:%M", dtick=3600000)
+    fig_battery.update_layout(height=450, margin=dict(l=20, r=20, t=30, b=20))
+    st.plotly_chart(fig_battery, use_container_width=True)
+
+    lowest_point = gantt_df['battery_pct'].min()
+    if lowest_point < min_pct:
+        st.error(f"❌ Battery drops to {lowest_point:.0f}% for at least one bus (minimum is {min_pct:.0f}%).")
+    else:
+        st.success(f"✅ Lowest battery level of the day: {lowest_point:.0f}% (minimum is {min_pct:.0f}%).")
 
 
 
@@ -345,7 +407,3 @@ if st.session_state.get("optimized_df") is not None:
     )
 
     st.divider()
-
-
-
-
